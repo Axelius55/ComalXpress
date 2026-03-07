@@ -3,7 +3,6 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { UpdateAuthDto } from './dto/update-auth.dto';
 import { RegisterDto } from './dto/register-user.dto';
 import { UsersService } from 'src/users/users.service';
 import { RolesUser } from 'src/users/enums/rolesUser.enum';

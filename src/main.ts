@@ -16,6 +16,7 @@ async function bootstrap() {
    const config = new DocumentBuilder()
     .setTitle('ComalXpress API')
     .setDescription('Restaurant ComalXpress ')
+    .addBearerAuth()
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
