@@ -22,7 +22,7 @@ import { ProductsModule } from './products/products.module';
     }),
     UsersModule,
     AuthModule,
-    ProductsModule
+    ProductsModule,
   ],
   controllers: [],
   providers: [],

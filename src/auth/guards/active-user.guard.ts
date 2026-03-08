@@ -7,7 +7,6 @@ import {
 import { UsersService } from 'src/users/users.service';
 
 @Injectable()
-@Injectable()
 export class ActiveUserGuard implements CanActivate {
   constructor(private usersService: UsersService) {}
 
@@ -17,12 +16,10 @@ export class ActiveUserGuard implements CanActivate {
 
     if (!user) return false;
 
-    const dbUser = await this.usersService.findOneUserClient(user.id);
+    const dbUser = await this.usersService.findById(user.id);
 
     if (!dbUser.isActive) {
-      throw new ForbiddenException(
-        'Your account is temporarily suspended',
-      );
+      throw new ForbiddenException('Your account is temporarily suspended');
     }
 
     return true;

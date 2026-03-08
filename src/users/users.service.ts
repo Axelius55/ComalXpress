@@ -18,87 +18,92 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async createUserWithRoles(createUserDto: CreateUserDto, roles: RolesUser[]) {
-    console.log('CREATE USER DTO:', createUserDto);
-    const userExist = await this.findOneByEmail(createUserDto.email);
+  async createUserWithRoles(dto: CreateUserDto, roles: RolesUser[]) {
+    const userExist = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
+
     if (userExist) {
-      throw new ConflictException('The user already exists');
+      throw new ConflictException('User already exists');
     }
 
     const user = this.userRepository.create({
-      ...createUserDto,
+      ...dto,
       roles,
-      password: await bcrypt.hash(createUserDto.password, 10),
+      password: await bcrypt.hash(dto.password, 10),
     });
 
-    const savedUser = await this.userRepository.save(user);
-    console.log('SAVED USER PASSWORD:', savedUser.password);
-
-    return {
-      id: savedUser.id,
-      email: savedUser.email,
-      name: savedUser.name,
-      lastName: savedUser.lastName,
-    };
+    return this.userRepository.save(user);
   }
 
-  findAllUsersClients() {
+  findAll() {
     return this.userRepository.find();
   }
 
-  async findOneUserClient(id: string) {
-    const user = await this.userRepository.findOneBy({ id });
-    if (!user) {
-      throw new NotFoundException(`User with id: ${id}, not found`);
-    } else {
-      return user;
-    }
-  }
-
-  async update(id: string, updateUserDto: UpdateUserDto) {
-    // Verificar que el usuario exista
+  async findById(id: string) {
     const user = await this.userRepository.findOne({
       where: { id },
     });
 
     if (!user) {
-      throw new NotFoundException(`User with id ${id} not found`);
+      throw new NotFoundException(`User ${id} not found`);
     }
 
-    // Si viene email, validar que no lo use OTRO usuario
-    if (updateUserDto.email && updateUserDto.email !== user.email) {
+    return user;
+  }
+
+  async update(id: string, dto: UpdateUserDto) {
+    const user = await this.findById(id);
+
+    if (dto.email && dto.email !== user.email) {
       const emailExists = await this.userRepository.findOne({
-        where: { email: updateUserDto.email },
+        where: { email: dto.email },
       });
 
       if (emailExists) {
-        throw new ConflictException(
-          `The user with email ${updateUserDto.email} already exists`,
-        );
+        throw new ConflictException(`The email ${dto.email} is already in use`);
       }
     }
 
-    // Mezclar datos (sin perder el id)
-    const updatedUser = this.userRepository.merge(user, updateUserDto);
-
-    // Guardar
-    return this.userRepository.save(updatedUser);
-  }
-
-  async removeClient(id: string) {
-    const userExists = await this.userRepository.findOne({
-      where: { id: id },
-    });
-    if (!userExists) {
-      throw new NotFoundException(`The user with id: ${id}, no exists`);
+    if (dto.password) {
+      dto.password = await bcrypt.hash(dto.password, 10);
     }
-    return this.userRepository.remove(userExists);
+
+    const merged = this.userRepository.merge(user, dto);
+
+    return this.userRepository.save(merged);
   }
 
-  //custom functions----------------------------------------------------------------
+  async deactivate(id: string) {
+    const user = await this.findById(id);
+
+    // No permitir desactivar usuarios que tengan rol ADMIN
+    if (user.roles.includes(RolesUser.ADMIN)) {
+      throw new ConflictException('Admin users cannot be deactivated');
+    }
+
+    user.isActive = false;
+
+    return this.userRepository.save(user);
+  }
+
+  async activate(id: string) {
+    const user = await this.findById(id);
+
+    user.isActive = true;
+
+    return this.userRepository.save(user);
+  }
+
+  async findClients() {
+    return this.userRepository
+      .createQueryBuilder('user')
+      .where(':role = ANY(user.roles)', { role: RolesUser.CLIENT })
+      .getMany();
+  }
 
   findOneByEmail(email: string) {
-    return this.userRepository.findOneBy({ email });
+    return this.userRepository.findOne({ where: { email } });
   }
 
   async findOneByEmailForAuth(email: string) {
@@ -107,5 +112,11 @@ export class UsersService {
       .addSelect('user.password')
       .where('user.email = :email', { email })
       .getOne();
+  }
+
+  async remove(id: string) {
+    const user = await this.findById(id);
+
+    return this.userRepository.remove(user);
   }
 }

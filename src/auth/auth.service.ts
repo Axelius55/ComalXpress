@@ -46,7 +46,7 @@ export class AuthService {
       sub: userExists.id,
       email: userExists.email,
       roles: userExists.roles,
-      isActive: userExists.isActive
+      isActive: userExists.isActive,
     };
 
     return {
@@ -57,32 +57,6 @@ export class AuthService {
         lastName: userExists.lastName,
         email: userExists.email,
       },
-    };
-  }
-
-  // Perfil propio
-  async getMyProfile(id: string) {
-    const user = await this.usersService.findOneUserClient(id);
-
-    return this.buildProfileResponse(user);
-  }
-
-  // Perfil de cualquier usuario (ADMIN)
-  async getUserProfileByAdmin(id: string) {
-    const user = await this.usersService.findOneUserClient(id);
-
-    return this.buildProfileResponse(user);
-  }
-
-  private buildProfileResponse(user: any) {
-    return {
-      id: user.id,
-      name: user.name,
-      lastName: user.lastName,
-      email: user.email,
-      roles: user.roles,
-      points: user.points,
-      status: user.isActive,
     };
   }
 }
