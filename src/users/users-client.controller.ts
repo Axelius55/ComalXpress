@@ -8,6 +8,7 @@ import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { AuthOnlyUser } from 'src/auth/decorators/authOnlyUser.decorator';
+import { ApiOperation } from '@nestjs/swagger';
 
 @Controller('users')
 export class ClientUsersController {
@@ -15,12 +16,14 @@ export class ClientUsersController {
 
   @Get('profile')
   @AuthOnlyUser()
+  @ApiOperation({ summary: 'Get current user profile' })
   getProfile(@CurrentUser() user: any) {
     return this.usersService.findById(user.id);
   }
 
   @Patch('profile')
   @AuthOnlyUser()
+  @ApiOperation({ summary: 'Update current user profile' })
   updateProfile(@CurrentUser() user: any, @Body() dto: UpdateUserDto) {
     return this.usersService.update(user.id, dto);
   }

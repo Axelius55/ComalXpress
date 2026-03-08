@@ -6,6 +6,7 @@ export class CreateExtraDto {
   @ApiProperty({
     example: 'Pollo',
     required: true,
+    type: String,
     description: 'Nombre del extra',
   })  
   @IsString()
@@ -14,6 +15,7 @@ export class CreateExtraDto {
   @ApiProperty({
     example: 10,
     required: true,
+    type: Number,
     description: 'Precio del extra',
   })
   @IsNumber()
@@ -22,6 +24,8 @@ export class CreateExtraDto {
 
   @ApiPropertyOptional({
     example: true,
+    type: Boolean,
+    required: false,
     description: 'Indica si el extra está activo',
   })
   @IsOptional()
