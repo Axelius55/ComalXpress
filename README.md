@@ -25,11 +25,17 @@ docker compose up -d
 yarn run start:dev
 ```
 
-5.- Url base para todos los endpoints
+5.- Swagger
+
+la URL para evr documentación es: localhost:3000/api
+
+6.- Url base para todos los endpoints
 
 ```
 localhost:3000/comal-xpress/api/v1
 ```
+
+
 
 ---
 
