@@ -1,16 +1,21 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 
 import { ExtrasService } from './extras.service';
 import { CreateExtraDto } from './dto/create-extra.dto';
 import { UpdateExtraDto } from './dto/update-extra.dto';
-import { ApiOperation, ApiParam } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam } from '@nestjs/swagger';
 
 @Controller('extras')
 export class ExtrasController {
-
-  constructor(
-    private readonly extrasService: ExtrasService
-  ) {}
+  constructor(private readonly extrasService: ExtrasService) {}
 
   @Post()
   @ApiOperation({ summary: 'Crear un nuevo extra' })
@@ -34,10 +39,7 @@ export class ExtrasController {
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar un extra' })
   @ApiParam({ name: 'id', description: 'ID del extra' })
-  update(
-    @Param('id') id: string,
-    @Body() updateExtraDto: UpdateExtraDto
-  ) {
+  update(@Param('id') id: string, @Body() updateExtraDto: UpdateExtraDto) {
     return this.extrasService.update(id, updateExtraDto);
   }
 
@@ -47,5 +49,4 @@ export class ExtrasController {
   remove(@Param('id') id: string) {
     return this.extrasService.remove(id);
   }
-
 }

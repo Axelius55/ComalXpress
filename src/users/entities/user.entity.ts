@@ -1,5 +1,6 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { RolesUser } from '../enums/rolesUser.enum';
+import { Order } from 'src/orders/entities/order.entity';
 
 @Entity()
 export class User {
@@ -26,4 +27,7 @@ export class User {
 
   @Column({ type: 'enum', enum: RolesUser, nullable: false, array: true })
   roles: RolesUser[];
+
+  @OneToMany( () => Order, order => order.user)
+  orders: Order[];
 }

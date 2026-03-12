@@ -61,8 +61,14 @@ export class ProductsController {
 
   @Delete(':productId/extras/:extraId')
   @ApiOperation({ summary: 'Eliminar un extra de un producto' })
-  @ApiParam({ name: 'productId', description: 'ID del producto al cual se desea eliminar el extra' })
-  @ApiParam({ name: 'extraId', description: 'ID del extra a eliminar del producto' })
+  @ApiParam({
+    name: 'productId',
+    description: 'ID del producto al cual se desea eliminar el extra',
+  })
+  @ApiParam({
+    name: 'extraId',
+    description: 'ID del extra a eliminar del producto',
+  })
   removeExtra(
     @Param('productId') productId: string,
     @Param('extraId') extraId: string,

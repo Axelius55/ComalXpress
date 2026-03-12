@@ -119,4 +119,12 @@ export class UsersService {
 
     return this.userRepository.remove(user);
   }
+
+  async addPoints(userId: string, points: number) {
+  const user = await this.findById(userId);
+
+  user.points += points;
+
+  return this.userRepository.save(user);
+}
 }

@@ -1,6 +1,5 @@
 import {
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { RegisterDto } from './dto/register-user.dto';
