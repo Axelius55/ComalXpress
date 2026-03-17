@@ -1,4 +1,3 @@
-import { Ticket } from 'src/tickets/entities/ticket.entity';
 import { User } from 'src/users/entities/user.entity';
 import {
   Column,
@@ -23,9 +22,6 @@ export class Order {
   @OneToMany(() => OrderItem, (item) => item.order)
   items: OrderItem[];
 
-  @OneToOne(() => Ticket, (ticket) => ticket.order)
-  ticket: Ticket;
-
   @Column({
     type: 'enum',
     enum: OrderStatus,
@@ -41,4 +37,10 @@ export class Order {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @Column({
+    unique: true,
+    nullable: true,
+  })
+  ticketNumber: string;
 }

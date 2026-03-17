@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsUUID, Min } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class CreateOrderItemDto {
   @ApiProperty({
@@ -14,10 +14,32 @@ export class CreateOrderItemDto {
   @ApiProperty({
     name: 'quantity',
     example: 2,
-    description: "Quantity of the product",
+    description: 'Quantity of the product',
     required: true,
   })
   @IsInt()
   @Min(1)
   quantity: number;
+
+  @ApiProperty({
+    name: 'extras',
+    description: 'Selected extras for the product',
+    required: false,
+    type: [String],
+    example: ['uuid-extra-pollo', 'uuid-extra-huevo'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  extras?: string[];
+
+  @ApiProperty({
+    name: 'notes',
+    description: 'Special instructions for the item',
+    required: false,
+    example: 'sin crema, salsa aparte',
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

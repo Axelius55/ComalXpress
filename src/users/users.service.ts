@@ -121,10 +121,10 @@ export class UsersService {
   }
 
   async addPoints(userId: string, points: number) {
-  const user = await this.findById(userId);
+    const user = await this.findById(userId);
 
-  user.points += points;
+    user.points += points;
 
-  return this.userRepository.save(user);
-}
+    return this.userRepository.save(user);
+  }
 }

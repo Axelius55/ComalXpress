@@ -12,8 +12,12 @@ export class CreateOrderDto {
     example: [
       {
         productId: 'uuid-product-id',
-        quantity: 2,
-      },
+        quantity: 1,
+        extras: [
+          'uuid-extra-pollo'
+        ],
+        notes: 'sin crema'
+      }
     ],
   })
   @ArrayMinSize(1)

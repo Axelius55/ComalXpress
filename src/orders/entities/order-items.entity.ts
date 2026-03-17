@@ -1,25 +1,32 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Order } from "./order.entity";
+import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Order } from './order.entity';
+import { OrderItemExtra } from './order-item-extras.entity';
 
 @Entity()
 export class OrderItem {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
- @PrimaryGeneratedColumn('uuid')
- id: string;
+  @ManyToOne(() => Order, (order) => order.items)
+  order: Order;
 
- @ManyToOne(() => Order, order => order.items)
- order: Order;
+  @Column()
+  productId: string;
 
- @Column()
- productId: string;
+  @Column()
+  productName: string;
 
- @Column()
- productName: string;
+  @Column()
+  price: number;
 
- @Column()
- price: number;
+  @Column()
+  quantity: number;
 
- @Column()
- quantity: number;
+  @Column({ type: 'text', nullable: true })
+  notes?: string;
 
+  @OneToMany(() => OrderItemExtra, (extra) => extra.orderItem, {
+    cascade: true,
+  })
+  extras: OrderItemExtra[];
 }

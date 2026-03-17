@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -29,7 +37,9 @@ export class OrdersController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all orders with optional status filter and pagination' })
+  @ApiOperation({
+    summary: 'Get all orders with optional status filter and pagination',
+  })
   @ApiQuery({ name: 'status', enum: OrderStatus, required: false })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 10 })
@@ -91,7 +101,9 @@ export class OrdersController {
   }
 
   @Patch(':id/abandoned')
-  @ApiOperation({ summary: 'Mark order as abandoned (customer did not arrive)' })
+  @ApiOperation({
+    summary: 'Mark order as abandoned (customer did not arrive)',
+  })
   @ApiParam({ name: 'id', example: 'uuid-order-id' })
   @Auth(RolesUser.ADMIN, RolesUser.EMPLOYEE)
   abandoned(@Param('id') id: string) {
@@ -105,5 +117,20 @@ export class OrdersController {
   pay(@Param('id') id: string, @CurrentUser() user: any) {
     return this.ordersService.payOrder(id, user.id);
   }
-  
+
+  @Get(':id/ticket')
+  @ApiOperation({ summary: 'Get ticket details for an order' })
+  @ApiParam({ name: 'id', example: 'uuid-order-id' })
+  @Auth(RolesUser.ADMIN, RolesUser.EMPLOYEE, RolesUser.CLIENT)
+  getTicket(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.ordersService.getTicket(id, user);
+  }
+
+  @Get('ticket/:ticketNumber')
+  @ApiOperation({ summary: 'Find order by ticket number' })
+  @ApiParam({ name: 'ticketNumber', example: 'CX-000023' })
+  @Auth(RolesUser.ADMIN, RolesUser.EMPLOYEE)
+  findByTicket(@Param('ticketNumber') ticketNumber: string) {
+    return this.ordersService.findByTicketNumber(ticketNumber);
+  }
 }

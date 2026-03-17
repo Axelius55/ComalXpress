@@ -4,15 +4,21 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
 import { Order } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { ProductsService } from 'src/products/products.service';
 import { OrderItem } from './entities/order-items.entity';
+import { OrderItemExtra } from './entities/order-item-extras.entity';
+
+import { ProductsService } from 'src/products/products.service';
+import { ExtrasService } from 'src/products/extras.service';
+import { UsersService } from 'src/users/users.service';
+
 import { OrderStatus } from './enums/oder-status.enum';
 import { RolesUser } from 'src/users/enums/rolesUser.enum';
-import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class OrdersService {
@@ -23,10 +29,19 @@ export class OrdersService {
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
 
-    private readonly usersService: UsersService,
+    @InjectRepository(OrderItemExtra)
+    private readonly orderItemExtraRepository: Repository<OrderItemExtra>,
 
+    private readonly usersService: UsersService,
     private readonly productsService: ProductsService,
+    private readonly extrasService: ExtrasService,
   ) {}
+
+  /*
+  =================================================
+  CREATE ORDER
+  =================================================
+  */
 
   async create(dto: CreateOrderDto, userId: string) {
     const user = await this.usersService.findById(userId);
@@ -42,8 +57,6 @@ export class OrdersService {
 
     let total = 0;
 
-    const orderItems: OrderItem[] = [];
-
     for (const item of dto.items) {
       const product = await this.productsService.findOne(item.productId);
 
@@ -53,14 +66,34 @@ export class OrdersService {
         productName: product.name,
         price: product.basePrice,
         quantity: item.quantity,
-      });
+        notes: item.notes,
+      } as Partial<OrderItem>);
 
-      total += product.basePrice * item.quantity;
+      await this.orderItemRepository.save(orderItem);
 
-      orderItems.push(orderItem);
+      let extrasTotal = 0;
+
+      if (item.extras?.length) {
+        for (const extraId of item.extras) {
+          const extra = await this.extrasService.findOne(extraId);
+
+          const orderExtra = this.orderItemExtraRepository.create({
+            orderItem,
+            extraId: extra.id,
+            name: extra.name,
+            price: extra.price,
+          });
+
+          await this.orderItemExtraRepository.save(orderExtra);
+
+          extrasTotal += extra.price;
+        }
+      }
+
+      const itemTotal = (product.basePrice + extrasTotal) * item.quantity;
+
+      total += itemTotal;
     }
-
-    await this.orderItemRepository.save(orderItems);
 
     order.total = total;
 
@@ -69,10 +102,17 @@ export class OrdersService {
     return this.findOne(order.id);
   }
 
+  /*
+  =================================================
+  FIND ALL
+  =================================================
+  */
+
   async findAll(status?: OrderStatus, page = 1, limit = 10) {
     const query = this.orderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.items', 'items')
+      .leftJoinAndSelect('items.extras', 'extras')
       .leftJoinAndSelect('order.user', 'user')
       .orderBy('order.createdAt', 'DESC');
 
@@ -86,7 +126,7 @@ export class OrdersService {
       .getManyAndCount();
 
     return {
-      data: orders,
+      data: orders.map((o) => this.mapOrder(o)),
       meta: {
         total,
         page,
@@ -96,47 +136,57 @@ export class OrdersService {
     };
   }
 
+  /*
+  =================================================
+  FIND MY ORDERS
+  =================================================
+  */
+
   async findMyOrders(userId: string) {
-    return this.orderRepository
+    const orders = await this.orderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.items', 'items')
+      .leftJoinAndSelect('items.extras', 'extras')
+      .leftJoinAndSelect('order.user', 'user')
       .where('order.userId = :userId', { userId })
       .orderBy('order.createdAt', 'DESC')
       .getMany();
+
+    return orders.map((o) => this.mapOrder(o));
   }
 
+  /*
+  =================================================
+  FIND ONE
+  =================================================
+  */
+
   async findOne(id: string) {
-    const order = await this.orderRepository.findOne({
-      where: { id },
-      relations: ['items', 'user'],
-    });
-
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-
-    return order;
+    const order = await this.getOrderEntity(id);
+    return this.mapOrder(order);
   }
 
   async findOneSecure(id: string, user: any) {
-    const order = await this.findOne(id);
+    const order = await this.getOrderEntity(id);
 
     const isAdmin = user.roles.includes(RolesUser.ADMIN);
     const isEmployee = user.roles.includes(RolesUser.EMPLOYEE);
 
-    if (isAdmin || isEmployee) {
-      return order;
-    }
-
-    if (order.user.id !== user.id) {
+    if (!isAdmin && !isEmployee && order.user.id !== user.id) {
       throw new ForbiddenException('You cannot access this order');
     }
 
-    return order;
+    return this.mapOrder(order);
   }
 
+  /*
+  =================================================
+  ORDER STATE CHANGES
+  =================================================
+  */
+
   async confirmOrder(id: string) {
-    const order = await this.findOne(id);
+    const order = await this.getOrderEntity(id);
 
     if (order.status !== OrderStatus.PENDING) {
       throw new BadRequestException('Only pending orders can be confirmed');
@@ -144,11 +194,13 @@ export class OrdersService {
 
     order.status = OrderStatus.CONFIRMED;
 
-    return this.orderRepository.save(order);
+    await this.orderRepository.save(order);
+
+    return this.mapOrder(order);
   }
 
   async cancelOrder(id: string) {
-    const order = await this.findOne(id);
+    const order = await this.getOrderEntity(id);
 
     if (order.status !== OrderStatus.PENDING) {
       throw new BadRequestException('Only pending orders can be cancelled');
@@ -156,11 +208,13 @@ export class OrdersService {
 
     order.status = OrderStatus.CANCELLED;
 
-    return this.orderRepository.save(order);
+    await this.orderRepository.save(order);
+
+    return this.mapOrder(order);
   }
 
   async startPreparing(id: string) {
-    const order = await this.findOne(id);
+    const order = await this.getOrderEntity(id);
 
     if (order.status !== OrderStatus.CONFIRMED) {
       throw new BadRequestException('Order must be confirmed first');
@@ -172,11 +226,13 @@ export class OrdersService {
 
     order.status = OrderStatus.PREPARING;
 
-    return this.orderRepository.save(order);
+    await this.orderRepository.save(order);
+
+    return this.mapOrder(order);
   }
 
   async markReady(id: string) {
-    const order = await this.findOne(id);
+    const order = await this.getOrderEntity(id);
 
     if (order.status !== OrderStatus.PREPARING) {
       throw new BadRequestException('Order must be preparing');
@@ -184,11 +240,13 @@ export class OrdersService {
 
     order.status = OrderStatus.READY;
 
-    return this.orderRepository.save(order);
+    await this.orderRepository.save(order);
+
+    return this.mapOrder(order);
   }
 
   async markPickedUp(id: string) {
-    const order = await this.findOne(id);
+    const order = await this.getOrderEntity(id);
 
     if (order.status !== OrderStatus.READY) {
       throw new BadRequestException('Order must be ready');
@@ -203,13 +261,13 @@ export class OrdersService {
     await this.usersService.addPoints(order.user.id, pointsEarned);
 
     return {
-      order,
+      order: this.mapOrder(order),
       pointsEarned,
     };
   }
 
   async markAbandoned(id: string) {
-    const order = await this.findOne(id);
+    const order = await this.getOrderEntity(id);
 
     if (order.status !== OrderStatus.READY) {
       throw new BadRequestException('Only ready orders can be abandoned');
@@ -217,11 +275,19 @@ export class OrdersService {
 
     order.status = OrderStatus.ABANDONED;
 
-    return this.orderRepository.save(order);
+    await this.orderRepository.save(order);
+
+    return this.mapOrder(order);
   }
 
+  /*
+  =================================================
+  PAYMENT
+  =================================================
+  */
+
   async payOrder(id: string, userId: string) {
-    const order = await this.findOne(id);
+    const order = await this.getOrderEntity(id);
 
     if (order.user.id !== userId) {
       throw new ForbiddenException('You cannot pay this order');
@@ -236,19 +302,124 @@ export class OrdersService {
     }
 
     order.isPaid = true;
+    order.ticketNumber = await this.generateTicketNumber();
 
-    return this.orderRepository.save(order);
+    await this.orderRepository.save(order);
+
+    return this.mapOrder(order);
   }
 
-  async findByStatus(status: OrderStatus) {
-    const orders = await this.orderRepository.find({
-      where: { status },
-      relations: ['user', 'items'],
-      order: {
-        createdAt: 'ASC',
-      },
+  /*
+  =================================================
+  TICKET
+  =================================================
+  */
+
+  async getTicket(id: string, user: any) {
+    const order = await this.getOrderEntity(id);
+
+    if (!order.isPaid) {
+      throw new BadRequestException('Ticket not available until order is paid');
+    }
+
+    const isAdmin = user.roles.includes(RolesUser.ADMIN);
+    const isEmployee = user.roles.includes(RolesUser.EMPLOYEE);
+
+    if (!isAdmin && !isEmployee && order.user.id !== user.id) {
+      throw new ForbiddenException('You cannot access this ticket');
+    }
+
+    return this.mapOrder(order);
+  }
+
+  async findByTicketNumber(ticketNumber: string) {
+    const order = await this.orderRepository.findOne({
+      where: { ticketNumber },
+      relations: ['items', 'items.extras', 'user'],
     });
 
-    return orders;
+    if (!order) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    return this.mapOrder(order);
+  }
+
+  /*
+  =================================================
+  HELPERS
+  =================================================
+  */
+
+  private async getOrderEntity(id: string): Promise<Order> {
+    const order = await this.orderRepository.findOne({
+      where: { id },
+      relations: ['items', 'items.extras', 'user'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return order;
+  }
+
+  private mapOrder(order: Order) {
+    return {
+      id: order.id,
+      ticketNumber: order.ticketNumber,
+      status: order.status,
+      isPaid: order.isPaid,
+      createdAt: order.createdAt,
+      total: Number(order.total),
+
+      customer: {
+        id: order.user?.id,
+        name: order.user?.name,
+      },
+
+      items:
+        order.items?.map((item) => {
+          const extrasTotal =
+            item.extras?.reduce((sum, e) => sum + Number(e.price), 0) ?? 0;
+
+          const basePrice = Number(item.price);
+          const unitPrice = basePrice + extrasTotal;
+
+          return {
+            productId: item.productId,
+            productName: item.productName,
+            price: basePrice,
+            quantity: item.quantity,
+            notes: item.notes,
+
+            extras:
+              item.extras?.map((e) => ({
+                id: e.extraId,
+                name: e.name,
+                price: e.price,
+              })) ?? [],
+
+            subtotal: unitPrice * item.quantity,
+          };
+        }) ?? [],
+    };
+  }
+
+  private async generateTicketNumber(): Promise<string> {
+    const lastOrder = await this.orderRepository
+      .createQueryBuilder('order')
+      .where('order.ticketNumber IS NOT NULL')
+      .orderBy('order.createdAt', 'DESC')
+      .getOne();
+
+    let nextNumber = 1;
+
+    if (lastOrder?.ticketNumber) {
+      const lastNumber = parseInt(lastOrder.ticketNumber.split('-')[1]);
+      nextNumber = lastNumber + 1;
+    }
+
+    return `CX-${nextNumber.toString().padStart(6, '0')}`;
   }
 }
