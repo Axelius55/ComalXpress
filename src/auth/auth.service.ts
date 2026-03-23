@@ -17,7 +17,6 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    console.log('REGISTER DTO:', registerDto);
     return this.usersService.createUserWithRoles(registerDto, [
       RolesUser.CLIENT,
     ]);

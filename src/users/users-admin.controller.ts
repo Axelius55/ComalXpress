@@ -13,6 +13,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { CurrentUser } from 'src/auth/decorators/user.decorator';
 
 @Controller('admins')
 @Auth(RolesUser.ADMIN)
@@ -55,9 +56,10 @@ export class AdminUsersController {
   @Patch(':id/desactivate')
   @ApiOperation({ summary: 'Deactivate a user' })
   @ApiParam({ name: 'id', description: 'User ID' })
-  deactivate(@Param('id') id: string) {
-    return this.usersService.deactivate(id);
+  deactivate(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.usersService.deactivate(id, user);
   }
+  
   @Patch(':id/activate')
   @ApiOperation({ summary: 'Activate a user' })
   @ApiParam({ name: 'id', description: 'User ID' })

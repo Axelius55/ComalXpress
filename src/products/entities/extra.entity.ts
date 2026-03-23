@@ -18,7 +18,7 @@ export class Extra {
 
   @Column('float')
   price: number;
-
+   
   @Column({ default: true })
   isActive: boolean;
 

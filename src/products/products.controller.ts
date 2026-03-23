@@ -14,24 +14,30 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AddExtrasDto } from './dto/add-extras.dto';
 import { ApiOperation, ApiParam } from '@nestjs/swagger';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { RolesUser } from 'src/users/enums/rolesUser.enum';
+import { AuthOnlyUser } from 'src/auth/decorators/authOnlyUser.decorator';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
+  @Auth(RolesUser.ADMIN)
   @ApiOperation({ summary: 'Crear un nuevo producto' })
   create(@Body() createProductDto: CreateProductDto) {
     return this.productsService.create(createProductDto);
   }
 
   @Get()
+  @AuthOnlyUser()
   @ApiOperation({ summary: 'Obtener todos los productos' })
   findAll() {
     return this.productsService.findAll();
   }
 
   @Get(':id')
+  @AuthOnlyUser()
   @ApiOperation({ summary: 'Obtener un producto por ID' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
   findOne(@Param('id') id: string) {
@@ -39,6 +45,7 @@ export class ProductsController {
   }
 
   @Patch(':id')
+  @Auth(RolesUser.ADMIN)
   @ApiOperation({ summary: 'Actualizar un producto' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
   update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
@@ -46,6 +53,7 @@ export class ProductsController {
   }
 
   @Delete(':id')
+  @Auth(RolesUser.ADMIN)
   @ApiOperation({ summary: 'Eliminar un producto' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
   remove(@Param('id') id: string) {
@@ -53,6 +61,7 @@ export class ProductsController {
   }
 
   @Post(':id/extras')
+  @Auth(RolesUser.ADMIN)
   @ApiOperation({ summary: 'Asignar extras a un producto' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
   addExtras(@Param('id') id: string, @Body() dto: AddExtrasDto) {
@@ -60,6 +69,7 @@ export class ProductsController {
   }
 
   @Delete(':productId/extras/:extraId')
+  @Auth(RolesUser.ADMIN)
   @ApiOperation({ summary: 'Eliminar un extra de un producto' })
   @ApiParam({
     name: 'productId',
@@ -77,6 +87,7 @@ export class ProductsController {
   }
 
   @Get(':id/extras')
+  @AuthOnlyUser()
   @ApiOperation({ summary: 'Obtener los extras de un producto' })
   @ApiParam({ name: 'id', description: 'ID del producto' })
   getExtras(@Param('id') id: string) {

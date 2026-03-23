@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -33,7 +34,17 @@ export class UsersService {
       password: await bcrypt.hash(dto.password, 10),
     });
 
-    return this.userRepository.save(user);
+    await this.userRepository.save(user);
+
+    return {
+      id: user.id,
+      name: user.name,
+      lastName: user.lastName,
+      email: user.email,
+      roles: user.roles,
+      isActive: user.isActive,
+      points: user.points,
+    };
   }
 
   findAll() {
@@ -74,12 +85,17 @@ export class UsersService {
     return this.userRepository.save(merged);
   }
 
-  async deactivate(id: string) {
+  async deactivate(id: string, currentUser: any) {
     const user = await this.findById(id);
 
-    // No permitir desactivar usuarios que tengan rol ADMIN
-    if (user.roles.includes(RolesUser.ADMIN)) {
-      throw new ConflictException('Admin users cannot be deactivated');
+    const isEmployee = currentUser.roles.includes(RolesUser.EMPLOYEE);
+    const targetIsAdmin = user.roles.includes(RolesUser.ADMIN);
+    const targetIsEmployee = user.roles.includes(RolesUser.EMPLOYEE);
+
+    if (isEmployee && (targetIsAdmin || targetIsEmployee)) {
+      throw new ForbiddenException(
+        'Insufficient permissions to deactivate this user',
+      );
     }
 
     user.isActive = false;

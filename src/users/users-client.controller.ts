@@ -10,7 +10,7 @@ import { CurrentUser } from 'src/auth/decorators/user.decorator';
 import { AuthOnlyUser } from 'src/auth/decorators/authOnlyUser.decorator';
 import { ApiOperation } from '@nestjs/swagger';
 
-@Controller('users')
+@Controller('clients')
 export class ClientUsersController {
   constructor(private readonly usersService: UsersService) {}
 

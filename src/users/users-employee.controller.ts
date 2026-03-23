@@ -39,8 +39,8 @@ export class EmployeeUsersController {
   @Patch('clients/:id/desactivate')
   @ApiOperation({ summary: 'Deactivate a client' })
   @ApiParam({ name: 'id', description: 'Client ID' })
-  deactivateClient(@Param('id') id: string) {
-    return this.usersService.deactivate(id);
+  deactivateClient(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.usersService.deactivate(id, user);
   }
 
   @Patch('clients/:id/activate')

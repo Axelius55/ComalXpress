@@ -6,7 +6,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
+  MinLength,
 } from 'class-validator';
 
 export class CreateProductDto {
@@ -16,6 +18,8 @@ export class CreateProductDto {
     description: 'Nombre del producto',
   })
   @IsString()
+  @MinLength(3)
+  @MaxLength(70)
   name: string;
 
   @ApiPropertyOptional({
@@ -24,6 +28,8 @@ export class CreateProductDto {
   })
   @IsOptional()
   @IsString()
+  @MinLength(5)
+  @MaxLength(200)
   description?: string;
 
   @ApiProperty({
