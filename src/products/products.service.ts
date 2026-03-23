@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Product } from './entities/product.entity';
@@ -114,44 +118,7 @@ export class ProductsService {
   }
 
   async addExtras(productId: string, extrasIds: string[]) {
-    const product = await this.productRepository.findOne({
-      where: { id: productId },
-    });
-
-    if (!product) throw new NotFoundException('Product not found');
-
-    const extras = await this.extraRepository.findBy({
-      id: In(extrasIds),
-    });
-
-    const relations = extras.map((extra) =>
-      this.productExtraRepository.create({
-        product,
-        extra,
-      }),
-    );
-
-    await this.productExtraRepository.save(relations);
-
-    return this.findOne(productId);
-  }
-
-  async removeExtra(productId: string, extraId: string) {
-    const relation = await this.productExtraRepository.findOne({
-      where: {
-        product: { id: productId },
-        extra: { id: extraId },
-      },
-    });
-
-    if (!relation) throw new NotFoundException('Extra not assigned to product');
-
-    await this.productExtraRepository.remove(relation);
-
-    return { message: 'Extra removed from product' };
-  }
-
-  async getExtras(productId: string) {
+    // 1. Buscar producto
     const product = await this.productRepository.findOne({
       where: { id: productId },
       relations: {
@@ -161,8 +128,71 @@ export class ProductsService {
       },
     });
 
-    if (!product) throw new NotFoundException('Product not found');
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
 
-    return product.productExtras.map((pe) => pe.extra);
+    // 2. Validar que vengan IDs
+    if (!extrasIds || extrasIds.length === 0) {
+      throw new BadRequestException('extrasIds must not be empty');
+    }
+
+    // 3. Buscar extras
+    const extras = await this.extraRepository.findBy({
+      id: In(extrasIds),
+    });
+
+    // 4. Validar que todos existan
+    if (extras.length !== extrasIds.length) {
+      throw new BadRequestException('Some extras not found');
+    }
+
+    // 5. Obtener IDs ya existentes
+    const existingExtraIds = product.productExtras.map((pe) => pe.extra.id);
+
+    // 6. Filtrar solo nuevos extras
+    const newExtras = extras.filter(
+      (extra) => !existingExtraIds.includes(extra.id),
+    );
+
+    // 7. Si no hay nuevos, evitar duplicados
+    if (newExtras.length === 0) {
+      return this.findOne(productId);
+    }
+
+    // 8. Crear relaciones
+    const relations = newExtras.map((extra) =>
+      this.productExtraRepository.create({
+        product,
+        extra,
+      }),
+    );
+
+    // 9. Guardar
+    await this.productExtraRepository.save(relations);
+
+    return this.findOne(productId);
+  }
+
+  async removeExtra(productId: string, extraId: string) {
+    const result = await this.productExtraRepository.delete({
+      product: { id: productId },
+      extra: { id: extraId },
+    });
+
+    if (result.affected === 0) {
+      throw new NotFoundException('Extra not assigned to product');
+    }
+
+    return { message: 'Extra removed from product' };
+  }
+
+  async getExtras(productId: string) {
+    const extras = await this.productExtraRepository.find({
+      where: { product: { id: productId } },
+      relations: ['extra'],
+    });
+
+    return extras.map((pe) => pe.extra);
   }
 }
