@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 
 import { Order } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -35,6 +35,7 @@ export class OrdersService {
     private readonly usersService: UsersService,
     private readonly productsService: ProductsService,
     private readonly extrasService: ExtrasService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /*
@@ -44,62 +45,100 @@ export class OrdersService {
   */
 
   async create(dto: CreateOrderDto, userId: string) {
-    const user = await this.usersService.findById(userId);
+    const queryRunner = this.dataSource.createQueryRunner();
 
-    const order = this.orderRepository.create({
-      user,
-      status: OrderStatus.PENDING,
-      isPaid: false,
-      total: 0,
-    });
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    await this.orderRepository.save(order);
+    try {
+      const user = await this.usersService.findById(userId);
 
-    let total = 0;
+      // Obtener todos los productIds
+      const productIds = dto.items.map((i) => i.productId);
 
-    for (const item of dto.items) {
-      const product = await this.productsService.findOne(item.productId);
+      // Obtener todos los extrasIds (flat)
+      const extrasIds = dto.items.flatMap((i) => i.extras ?? []);
 
-      const orderItem = this.orderItemRepository.create({
-        order,
-        productId: product.id,
-        productName: product.name,
-        price: product.basePrice,
-        quantity: item.quantity,
-        notes: item.notes,
-      } as Partial<OrderItem>);
+      // Traer productos en batch
+      const products = await this.productsService.findByIds(productIds);
 
-      await this.orderItemRepository.save(orderItem);
+      // Traer extras en batch
+      const extras = await this.extrasService.findByIds(extrasIds);
 
-      let extrasTotal = 0;
+      // Convertir a mapas (O(1) lookup)
+      const productMap = new Map(products.map((p) => [p.id, p]));
+      const extraMap = new Map(extras.map((e) => [e.id, e]));
 
-      if (item.extras?.length) {
-        for (const extraId of item.extras) {
-          const extra = await this.extrasService.findOne(extraId);
+      const order = queryRunner.manager.create(Order, {
+        user,
+        status: OrderStatus.PENDING,
+        isPaid: false,
+        total: 0,
+      });
 
-          const orderExtra = this.orderItemExtraRepository.create({
-            orderItem,
-            extraId: extra.id,
-            name: extra.name,
-            price: extra.price,
-          });
+      await queryRunner.manager.save(order);
 
-          await this.orderItemExtraRepository.save(orderExtra);
+      let total = 0;
 
-          extrasTotal += extra.price;
+      for (const item of dto.items) {
+        const product = productMap.get(item.productId);
+
+        if (!product) {
+          throw new NotFoundException(`Product ${item.productId} not found`);
         }
+
+        const orderItem = queryRunner.manager.create(OrderItem, {
+          order,
+          productId: product.id,
+          productName: product.name,
+          price: product.basePrice,
+          quantity: item.quantity,
+          notes: item.notes,
+        });
+
+        await queryRunner.manager.save(orderItem);
+
+        let extrasTotal = 0;
+
+        if (item.extras?.length) {
+          for (const extraId of item.extras) {
+            const extra = extraMap.get(extraId);
+
+            if (!extra) {
+              throw new NotFoundException(`Extra ${extraId} not found`);
+            }
+
+            const orderExtra = queryRunner.manager.create(OrderItemExtra, {
+              orderItem,
+              extraId: extra.id,
+              name: extra.name,
+              price: extra.price,
+            });
+
+            await queryRunner.manager.save(orderExtra);
+
+            extrasTotal += extra.price;
+          }
+        }
+
+        const itemTotal = (product.basePrice + extrasTotal) * item.quantity;
+
+        total += itemTotal;
       }
 
-      const itemTotal = (product.basePrice + extrasTotal) * item.quantity;
+      order.total = total;
 
-      total += itemTotal;
+      await queryRunner.manager.save(order);
+
+      await queryRunner.commitTransaction();
+
+      return this.findOne(order.id);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    order.total = total;
-
-    await this.orderRepository.save(order);
-
-    return this.findOne(order.id);
   }
 
   /*

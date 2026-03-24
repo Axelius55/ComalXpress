@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateOrderItemDto {
   @ApiProperty({
@@ -41,5 +41,7 @@ export class CreateOrderItemDto {
   })
   @IsOptional()
   @IsString()
+  @MinLength(3)
+  @MaxLength(150)
   notes?: string;
 }

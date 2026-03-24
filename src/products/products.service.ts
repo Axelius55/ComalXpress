@@ -195,4 +195,10 @@ export class ProductsService {
 
     return extras.map((pe) => pe.extra);
   }
+
+  async findByIds(ids: string[]) {
+    return this.productRepository.findBy({
+      id: In(ids),
+    });
+  }
 }

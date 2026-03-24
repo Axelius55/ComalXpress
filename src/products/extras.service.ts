@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Extra } from './entities/extra.entity';
 import { CreateExtraDto } from './dto/create-extra.dto';
 import { UpdateExtraDto } from './dto/update-extra.dto';
@@ -44,5 +44,11 @@ export class ExtrasService {
     await this.extraRepository.remove(extra);
 
     return { message: 'Extra deleted' };
+  }
+
+  async findByIds(ids: string[]) {
+    return this.extraRepository.findBy({
+      id: In(ids),
+    });
   }
 }
